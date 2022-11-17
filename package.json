@@ -13,7 +13,7 @@
   "author": "Sam",
   "license": "MIT",
   "dependencies": {
-    "58-toolkit": "^1.0.3",
+    "58-toolkit": "^1.0.21",
     "cli-color": "^2.0.3"
   }
 }
