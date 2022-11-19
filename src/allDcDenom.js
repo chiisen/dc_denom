@@ -206,7 +206,7 @@ function exportAllDcDenomToExcel() {
       }) // valueCurrency_ end
     } //else end
 
-    writeMultiplePagesExcel(`./output/${hallName_}.xlsx`, buff)
+    writeMultiplePagesExcel(`./output/${hallName_.dc}.xlsx`, buff)
   }) // allDcDenomMap end
 }
 
