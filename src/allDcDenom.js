@@ -1,7 +1,5 @@
-const fs = require("fs")
-
 const { excel, data, convert, helpers, file } = require("58-toolkit")
-const { getExcel, writeMultiplePagesExcel } = excel
+const { getExcel, writeMultiplePagesExcel, writeMultiplePagesExcelJs } = excel
 const { denomIndexToDenomString, denomIndexListStringToDefaultDenomString, mergeSortArray } = data
 const { convertDenomListStringToExcelDenomList, convertExcelToDenomList, convertExcelToDenomString } = convert
 const { isNumber } = helpers
@@ -94,12 +92,14 @@ function initAllDcDenom() {
 /**
  * 輸出所有 DC 的 denom 到 EXCEL
  */
-function exportAllDcDenomToExcel() {
+async function exportAllDcDenomToExcel() {
   //刪除所有檔案
   emptyDir(`./output`)
 
   allDcDenomMap.forEach((valueGameIdCurrency_, keyCid_) => {
-    let buff = []
+    let buff_ = []
+
+    let excelJsBuff_ = []
 
     const hallName_ = hallNameMap.get(keyCid_)
     if (!hallName_) {
@@ -107,11 +107,15 @@ function exportAllDcDenomToExcel() {
       return //沒有 hallName 後面就不處理了
     } else {
       valueGameIdCurrency_.forEach((valueGameId_, keyCurrency_) => {
-        let excelData = []
+        let excelData_ = []
+
+        let excelJsColumns_ = []
+        let excelJsRows = []
+
         let sheetName_ = keyCurrency_
 
         //標題
-        excelData.push([
+        excelData_.push([
           "Cid",
           "GameId",
           "Name",
@@ -154,8 +158,96 @@ function exportAllDcDenomToExcel() {
           "正確的預設MinBetDenom",
         ])
 
+        // ExcelJs 標題
+        excelJsColumns_.push(
+          { name: "Cid" },
+          { name: "GameId" },
+          { name: "Name" },
+          { name: "Currency" },
+          { name: "資料庫的Denom" },
+          { name: "MinBet" },
+          { name: "Denom是否一致" },
+          { name: "29" },
+          { name: "28" },
+          { name: "27" },
+          { name: "26" },
+          { name: "25" },
+          { name: "24" },
+          { name: "23" },
+          { name: "22" },
+          { name: "21" },
+          { name: "20" },
+          { name: "19" },
+          { name: "18" },
+          { name: "17" },
+          { name: "16" },
+          { name: "15" },
+          { name: "14" },
+          { name: "13" },
+          { name: "12" },
+          { name: "11" },
+          { name: "10" },
+          { name: "9" },
+          { name: "8" },
+          { name: "7" },
+          { name: "6" },
+          { name: "5" },
+          { name: "4" },
+          { name: "3" },
+          { name: "2" },
+          { name: "1" },
+          { name: "DefaultDenomId" },
+          { name: "預設面額" },
+          { name: "正確的MinBetDenom" },
+          { name: "正確的預設MinBetDenom" }
+        )
+
         //面額標題
-        excelData.push([
+        excelData_.push([
+          "", // Cid
+          "", // GameId
+          "", // Name
+          "", // Currency
+          "", // Denom
+          "", // MinBet
+          "", // Denom是否一致
+          "1:100000",
+          "1:50000",
+          "1:10000",
+          "1:5000",
+          "1:2000",
+          "1:1000",
+          "1:500",
+          "1:200",
+          "1:100",
+          "1:50",
+          "1:20",
+          "1:10",
+          "1:5",
+          "1:2",
+          "1:1",
+          "2:1",
+          "5:1",
+          "10:1",
+          "20:1",
+          "50:1",
+          "100:1",
+          "200:1",
+          "500:1",
+          "1000:1",
+          "2000:1",
+          "5000:1",
+          "10000:1",
+          "50000:1",
+          "100000:1",
+          "", // DefaultDenomId
+          "", // 預設面額
+          "", // 正確的MinBetDenom
+          "", // 正確的預設MinBetDenom
+        ])
+
+        // ExcelJs 面額標題
+        excelJsRows.push([
           "", // Cid
           "", // GameId
           "", // Name
@@ -209,7 +301,23 @@ function exportAllDcDenomToExcel() {
           const excelDenomList_ = convertDenomListStringToExcelDenomList(value_.denom)
 
           //寫入一筆資料的EXCEL
-          excelData.push([
+          excelData_.push([
+            value_.cid,
+            value_.gameId,
+            value_.name,
+            value_.currency,
+            value_.denom,
+            value_.minBet,
+            value_.isSame,
+            ...excelDenomList_,
+            value_.defaultDenomId,
+            defaultDenomString_,
+            value_.minBetDenomIndexList,
+            value_.defaultMinBetDenomIndex,
+          ])
+
+          // ExcelJs 寫入一筆資料的EXCEL
+          excelJsRows.push([
             value_.cid,
             value_.gameId,
             value_.name,
@@ -224,8 +332,15 @@ function exportAllDcDenomToExcel() {
             value_.defaultMinBetDenomIndex,
           ])
         }) // valueGameId_ end
-        const oneSheetData = { name: `${sheetName_}`, data: [...excelData] }
-        buff.push(oneSheetData)
+        const oneSheetData = { name: `${sheetName_}`, data: [...excelData_] }
+        buff_.push(oneSheetData)
+
+        const oneExcelJsSheetData = {
+          sheetName: `${sheetName_}`,
+          columns: [...excelJsColumns_],
+          rows: [...excelJsRows],
+        }
+        excelJsBuff_.push(oneExcelJsSheetData)
       }) // valueCurrency_ end
     } //else end
 
@@ -236,7 +351,9 @@ function exportAllDcDenomToExcel() {
 
     const fileName_ = `./output/${path_}/${hallName_.dc}.xlsx`
 
-    writeMultiplePagesExcel(fileName_, buff)
+    writeMultiplePagesExcel(fileName_, buff_)
+
+    //writeMultiplePagesExcelJs(fileName_, excelJsBuff_)
   }) // allDcDenomMap end
 }
 
