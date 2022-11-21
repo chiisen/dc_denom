@@ -30,7 +30,31 @@ function initHallName() {
         console.error(`重複的 cid: ${cid_} userName: ${userName_}`)
       }
     }
-  })
+  }) // hallNameSheet_ end
+
+  hallNameMap.forEach((x) => {
+    const targetDC_ = x.dc
+    let levelIcon_ = `💫`
+    let levelPath_ = ""
+    if (x.upId != "-1") {
+      const list_ = []
+
+      let upHall_ = hallNameMap.get(x.upId)
+      while (upHall_ && upHall_.upId != "-1") {
+        list_.push(`${upHall_.dc}`)
+        levelPath_ += ` ${upHall_.dc} `
+        console.log(levelIcon_ + `來源-DC: ${targetDC_} 的階層-DC: ${levelPath_}`)
+
+        upHall_ = hallNameMap.get(upHall_.upId)
+
+        levelIcon_ += `💫`
+      } // while end
+      const reverseList_ = list_.reverse()
+      x.pathList = reverseList_
+    } else {
+      console.error(`來源-DC: ${targetDC_} 一開始 upId 就是 "-1" (可能是 I8 的那個最上層)`)
+    }
+  }) // hallNameMap end
 }
 
 module.exports = { initHallName, hallNameMap }

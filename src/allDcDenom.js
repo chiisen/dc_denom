@@ -1,10 +1,15 @@
-const { excel, data, convert } = require("58-toolkit")
+const fs = require("fs")
+
+const { excel, data, convert, helpers, file } = require("58-toolkit")
 const { getExcel, writeMultiplePagesExcel } = excel
-const { denomIndexToDenomString, denomIndexListStringToDenomListString, denomIndexListStringToDefaultDenomString } =
-  data
-const { convertDenomListStringToExcelDenomList } = convert
+const { denomIndexToDenomString, denomIndexListStringToDefaultDenomString, mergeSortArray } = data
+const { convertDenomListStringToExcelDenomList, convertExcelToDenomList, convertExcelToDenomString } = convert
+const { isNumber } = helpers
+const { emptyDir } = file
 
 const { hallNameMap } = require("./hallName")
+const { gameMinBetMap } = require("./gameMinBet")
+const { minBetToExcelDenomListMap, minBetCurrencyToDefaultDenomNthMap } = require("./minBet")
 
 const allDcDenomMap = new Map()
 
@@ -18,35 +23,43 @@ function initAllDcDenom() {
     const denom_ = row_[3]
     const defaultDenomId_ = row_[4]
 
-    if (cid_ === undefined) {
-      console.warn("cid_ is undefined")
-    }
-
-    if (gameId_ === undefined) {
-      console.warn("gameId_ is undefined")
-    }
-
-    if (currency_ === undefined) {
-      console.warn("currency_ is undefined")
-    }
-
-    if (denom_ === undefined) {
-      console.warn("denom_ is undefined")
-    }
-
-    if (defaultDenomId_ === undefined) {
-      console.warn("defaultDenomId_ is undefined")
-    }
-
-    const payLoad_ = {
-      cid: cid_,
-      gameId: gameId_,
-      currency: currency_,
-      denom: denom_,
-      defaultDenomId: defaultDenomId_,
-    }
-
     if (gameId_ != "GameId") {
+      const gameMinBet_ = gameMinBetMap.get(gameId_)
+
+      const keyMinBetIdCurrency_ = `${gameMinBet_.minBet}-${currency_}`
+
+      const excelDenomList_ = minBetToExcelDenomListMap.get(keyMinBetIdCurrency_)
+      const denomList_ = convertExcelToDenomList(excelDenomList_)
+
+      const denomString_ = convertExcelToDenomString(excelDenomList_)
+
+      const defaultDenomNth_ = minBetCurrencyToDefaultDenomNthMap.get(keyMinBetIdCurrency_)
+      const defaultDenomIndexNth_ = defaultDenomNth_ - 1
+      const defaultMinBetDenomIndex_ = denomList_[defaultDenomIndexNth_]
+
+      let isSame_ = true
+      if (isNumber(denom_)) {
+        if (denom_ != excelDenomList_[0]) {
+          isSame_ = false
+        }
+      } else {
+        const sourceDenomIndexList_ = denom_.split(",")
+        isSame_ = mergeSortArray(sourceDenomIndexList_, denomList_)
+      }
+
+      const payLoad_ = {
+        cid: cid_,
+        gameId: gameId_,
+        currency: currency_,
+        denom: denom_,
+        defaultDenomId: defaultDenomId_,
+        minBet: gameMinBet_.minBet,
+        name: gameMinBet_.name,
+        minBetDenomIndexList: denomString_,
+        defaultMinBetDenomIndex: defaultMinBetDenomIndex_,
+        isSame: isSame_,
+      }
+
       const valueGameIdByCurrency_ = allDcDenomMap.get(cid_)
       const newMapGameId_ = new Map()
       newMapGameId_.set(gameId_, payLoad_)
@@ -82,7 +95,10 @@ function initAllDcDenom() {
  * 輸出所有 DC 的 denom 到 EXCEL
  */
 function exportAllDcDenomToExcel() {
-  allDcDenomMap.forEach((valueCurrency_, keyCid_) => {
+  //刪除所有檔案
+  emptyDir(`./output`)
+
+  allDcDenomMap.forEach((valueGameIdCurrency_, keyCid_) => {
     let buff = []
 
     const hallName_ = hallNameMap.get(keyCid_)
@@ -90,7 +106,7 @@ function exportAllDcDenomToExcel() {
       console.error(`找不到 Cid: ${keyCid_}`) //@note 這是異常，先以 HALL_LIST 為主
       return //沒有 hallName 後面就不處理了
     } else {
-      valueCurrency_.forEach((valueGameId_, keyCurrency_) => {
+      valueGameIdCurrency_.forEach((valueGameId_, keyCurrency_) => {
         let excelData = []
         let sheetName_ = keyCurrency_
 
@@ -98,8 +114,11 @@ function exportAllDcDenomToExcel() {
         excelData.push([
           "Cid",
           "GameId",
+          "Name",
           "Currency",
-          "Denom",
+          "資料庫的Denom",
+          "MinBet",
+          "Denom是否一致",
           "29",
           "28",
           "27",
@@ -131,14 +150,19 @@ function exportAllDcDenomToExcel() {
           "1",
           "DefaultDenomId",
           "預設面額",
+          "正確的MinBetDenom",
+          "正確的預設MinBetDenom",
         ])
 
         //面額標題
         excelData.push([
-          "",
-          "",
-          "",
-          "",
+          "", // Cid
+          "", // GameId
+          "", // Name
+          "", // Currency
+          "", // Denom
+          "", // MinBet
+          "", // Denom是否一致
           "1:100000",
           "1:50000",
           "1:10000",
@@ -168,37 +192,36 @@ function exportAllDcDenomToExcel() {
           "10000:1",
           "50000:1",
           "100000:1",
-          "",
-          "",
+          "", // DefaultDenomId
+          "", // 預設面額
+          "", // 正確的MinBetDenom
+          "", // 正確的預設MinBetDenom
         ])
 
-        valueGameId_.forEach((valuePayLoad_, keyGameId_) => {
+        valueGameId_.forEach((value_) => {
           let defaultDenomString_ = ""
-          if (valuePayLoad_.defaultDenomId != 0) {
-            if (valuePayLoad_.defaultDenomId === undefined) {
-              const msg_ = `[Cid: ${keyCid_} Currency: ${keyCurrency_} GameId: ${keyGameId_}] valuePayLoad_.defaultDenomId is undefined`
-              console.error(msg_)
-              return // 資料有異常，下面不處理了
-            } else {
-              defaultDenomString_ = denomIndexToDenomString(valuePayLoad_.defaultDenomId)
-            }
+          if (value_.defaultDenomId != 0) {
+            defaultDenomString_ = denomIndexToDenomString(value_.defaultDenomId)
           } else {
-            defaultDenomString_ = denomIndexListStringToDefaultDenomString(valuePayLoad_.denom)
+            defaultDenomString_ = denomIndexListStringToDefaultDenomString(value_.denom)
           }
 
-          const excelDenomList_ = convertDenomListStringToExcelDenomList(valuePayLoad_.denom)
-
-          const denomListString_ = denomIndexListStringToDenomListString(valuePayLoad_.denom)
+          const excelDenomList_ = convertDenomListStringToExcelDenomList(value_.denom)
 
           //寫入一筆資料的EXCEL
           excelData.push([
-            valuePayLoad_.cid,
-            valuePayLoad_.gameId,
-            valuePayLoad_.currency,
-            denomListString_,
+            value_.cid,
+            value_.gameId,
+            value_.name,
+            value_.currency,
+            value_.denom,
+            value_.minBet,
+            value_.isSame,
             ...excelDenomList_,
-            valuePayLoad_.defaultDenomId,
+            value_.defaultDenomId,
             defaultDenomString_,
+            value_.minBetDenomIndexList,
+            value_.defaultMinBetDenomIndex,
           ])
         }) // valueGameId_ end
         const oneSheetData = { name: `${sheetName_}`, data: [...excelData] }
@@ -206,7 +229,14 @@ function exportAllDcDenomToExcel() {
       }) // valueCurrency_ end
     } //else end
 
-    writeMultiplePagesExcel(`./output/${hallName_.dc}.xlsx`, buff)
+    let path_ = ""
+    hallName_.pathList.forEach((x) => {
+      path_ += `${x}/`
+    })
+
+    const fileName_ = `./output/${path_}/${hallName_.dc}.xlsx`
+
+    writeMultiplePagesExcel(fileName_, buff)
   }) // allDcDenomMap end
 }
 
