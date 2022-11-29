@@ -2,6 +2,8 @@ const { excel, convert } = require("58-toolkit")
 const { getExcel } = excel
 const { convertExcelToDenomList, convertExcelToExcelDenomList } = convert
 
+const { gameMinBetMap } = require("./gameMinBet")
+
 /**
  * key: minBet 與 currency 回傳 EXCEL 格式的 denom
  */
@@ -16,6 +18,24 @@ const minBetCurrencyToDefaultDenomIndexMap = new Map()
  * key: minBetId 與 currency 回傳第幾個 denom
  */
 const minBetCurrencyToDefaultDenomNthMap = new Map()
+
+/**
+ * 取得 gameId 的 default denom index
+ *
+ * @param gameId
+ * @param currency
+ * @returns
+ */
+function getDefaultMinBetDenomIndex(gameId, currency) {
+  const minBet_ = gameMinBetMap.get(gameId)
+  const keyMinBetIdCurrency_ = `${minBet_.minBet}-${currency}`
+  const defaultDenomNth_ = minBetCurrencyToDefaultDenomNthMap.get(keyMinBetIdCurrency_)
+  const defaultDenomIndexNth_ = defaultDenomNth_ - 1
+  const excelDenomList_ = minBetToExcelDenomListMap.get(keyMinBetIdCurrency_)
+  const denomList_ = convertExcelToDenomList(excelDenomList_)
+  const defaultMinBetDenomIndex_ = denomList_[defaultDenomIndexNth_]
+  return defaultMinBetDenomIndex_
+}
 
 /**
  *
@@ -128,4 +148,5 @@ module.exports = {
   minBetToExcelDenomListMap,
   minBetCurrencyToDefaultDenomIndexMap,
   minBetCurrencyToDefaultDenomNthMap,
+  getDefaultMinBetDenomIndex,
 }

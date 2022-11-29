@@ -1,5 +1,5 @@
 const { excel, data, convert, helpers, file } = require("58-toolkit")
-const { getExcel, writeMultiplePagesExcel, writeMultiplePagesExcelJs } = excel
+const { getExcel, writeMultiplePagesExcel } = excel
 const { denomIndexToDenomString, denomIndexListStringToDefaultDenomString, mergeSortArray } = data
 const { convertDenomListStringToExcelDenomList, convertExcelToDenomList, convertExcelToDenomString } = convert
 const { isNumber } = helpers
@@ -7,7 +7,11 @@ const { emptyDir } = file
 
 const { hallNameMap } = require("./hallName")
 const { gameMinBetMap } = require("./gameMinBet")
-const { minBetToExcelDenomListMap, minBetCurrencyToDefaultDenomNthMap } = require("./minBet")
+const {
+  minBetToExcelDenomListMap,
+  minBetCurrencyToDefaultDenomNthMap,
+  getDefaultMinBetDenomIndex,
+} = require("./minBet")
 
 const allDcDenomMap = new Map()
 const isDiffMap = new Map() // 不一致的 HALL 列表
@@ -32,9 +36,7 @@ function initAllDcDenom() {
 
       const denomString_ = convertExcelToDenomString(excelDenomList_)
 
-      const defaultDenomNth_ = minBetCurrencyToDefaultDenomNthMap.get(keyMinBetIdCurrency_)
-      const defaultDenomIndexNth_ = defaultDenomNth_ - 1
-      const defaultMinBetDenomIndex_ = denomList_[defaultDenomIndexNth_]
+      const defaultMinBetDenomIndex_ = getDefaultMinBetDenomIndex(gameId_, currency_)
 
       let isSame_ = true
       if (isNumber(denom_)) {
