@@ -327,6 +327,7 @@ async function exportAllDcDenomToExcel() {
     hallName_.pathList.forEach((x) => {
       path_ += `${x}/`
     })
+    //path_ += `${hallName_.dc}/` // @note 這邊有DC了，只要是顯示上層階層
     excelData_.push([`${hallName_.dc}`, `${path_}`, `${v[10]}`])
   })
 
